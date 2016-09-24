@@ -36,7 +36,7 @@ make install
 2) Install {project-name} on appliance
 ```
 PROJECT_NAME="miq-RedHat-Sat6"
-PROJECT_ZIP="https://github.com/ldomb/miq-RedHat-Sat6/archive/master.zip"
+PROJECT_ZIP="https://github.com/ldomb/miq-RedHat-Sat6/blob/master/Automate/miq-Marketplace/miq-RedHat-Sat6-master.zip?raw=true"
 cd /tmp
 wget -O ${PROJECT_NAME}.zip ${PROJECT_ZIP}
 unzip ${PROJECT_NAME}.zip
