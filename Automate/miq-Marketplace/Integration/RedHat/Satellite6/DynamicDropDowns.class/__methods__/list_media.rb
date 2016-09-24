@@ -1,21 +1,31 @@
 =begin
- method: List_Media.rb
- Description: Lists all media know to satellite6 
+ method: list_activationkeys.rb
+ Description: Lists activationkyes based on organization filter in satellite6
  Author: Laurent Domb <laurent@redhat.com>
- License: GPL v3 
+ License: GPL v2
 -------------------------------------------------------------------------------
- This program is free software: you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- GNU General Public License for more details.
- You should have received a copy of the GNU General Public License
- along with this program. If not, see <http://www.gnu.org/licenses/>.
+miq-RedHat-Sat6
+Copyright (C) 2016 Laurent Domb <lauren@redhat.com>
+
+This file is part of miq-RedHat-Sat6.
+
+Miq-RedHat-Sat6 is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 2 of the License, or
+(at your option) any later version.
+
+Miq-RedHat-Sat6 is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Miq-RedHat-Sat6.  If not, see <http://www.gnu.org/licenses/>.
+
 -------------------------------------------------------------------------------
 =end
+
+
 require 'rest-client'
 require 'json'
 
