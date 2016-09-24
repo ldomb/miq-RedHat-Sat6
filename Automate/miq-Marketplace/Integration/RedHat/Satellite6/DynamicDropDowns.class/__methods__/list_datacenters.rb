@@ -19,39 +19,59 @@
 require 'rest-client'
 require 'json'
 
+begin
 
-# Sat6 admin user
-$username = nil || $evm.object['username']
-
-# Get Satellite password from model else set it here
-$password = nil || $evm.object.decrypt('password')
-
-url = nil || $evm.object['sat6url']
-katello_url = nil || $evm.object['katellourl']
-
-def get_json(compute_resources)
+  def get_json(search)
     response = RestClient::Request.new(
-        :method => :get,
-        :url => compute_resources,
-        :user => $username,
-        :password => $password,
-        :headers => { :accept => :json,
-        :content_type => :json }
+        :method       => :get,
+        :url          => search,
+        :user         => $username,
+        :password     => $password,
+        :verify_ssl   => $verifyssl,
+        :headers      => {
+        :accept       => :json,
+        :content_type => :json
+        }
     ).execute
     results = JSON.parse(response.to_str)
-end
+  end
 
-compute_resource_id = $evm.root['dialog_provider_ems_ref']
-computeresource = get_json(url+"compute_resources/#{compute_resource_id}")
-dialog_hash={}
-dialog_hash[computeresource['datacenter']] = computeresource['datacenter']
+  $username       = nil || $evm.object['username']
+  $password       = nil || $evm.object.decrypt('password')
+  $verifyssl      = nil || $evm.object['verifyssl']
+  url             = nil || $evm.object['sat6url']
+  katello_url     = nil || $evm.object['katellourl']
+  dialog_hash     = {}
 
-if dialog_hash.blank?
+
+
+  compute_resource_id = $evm.root['dialog_provider_ems_ref']
+  computeresource = get_json(url+"compute_resources/#{compute_resource_id}")
+  dialog_hash[computeresource['datacenter']] = computeresource['datacenter']
+
+  if dialog_hash.blank?
     log(:info, "No Templates found")
   dialog_hash[nil] = "< no datacenter found >"
-else
-  $evm.object['default_value'],v = dialog_hash.first
-  dialog_hash[nil] = '< choose a datacenter >'
+  else
+    $evm.object['default_value'],v = dialog_hash.first
+    dialog_hash[nil] = '< choose a datacenter >'
+  end
+
+  list_values = {
+    'sort_by'       => :value,
+    'required'      => false,
+    'values'        => dialog_hash
+  }
+
+  list_values.each { |key, value| $evm.object[key] = value }
+
+  exit MIQ_OK
+
+rescue RestClient::Exception => err
+  $evm.log(:error, "The REST request failed with code: #{err.response.code}") unless err.response.nil?
+  $evm.log(:error, "The response body was:\n#{err.response.body.inspect}") unless err.response.nil?
+  exit MIQ_STOP
+rescue => err
+  $evm.log(:error, "[#{err}]\n#{err.backtrace.join("\n")}")
+  exit MIQ_STOP
 end
-$evm.object['values'] = dialog_hash
-$evm.log(:info, "Dialog Values: #{$evm.object['values'].inspect}")

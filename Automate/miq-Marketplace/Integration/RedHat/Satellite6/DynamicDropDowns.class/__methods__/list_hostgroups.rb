@@ -19,49 +19,60 @@
 require 'rest-client'
 require 'json'
 
-def get_json(hostgroups)
+begin
+
+  def get_json(search)
     response = RestClient::Request.new(
-        :method => :get,
-        :verify_ssl => $verifyssl,
-        :url => hostgroups,
-        :user => $username,
-        :password => $password,
-        :headers => { :accept => :json,
-        :content_type => :json }
+        :method       => :get,
+        :url          => search,
+        :user         => $username,
+        :password     => $password,
+        :verify_ssl   => $verifyssl,
+        :headers      => {
+        :accept       => :json,
+        :content_type => :json
+        }
     ).execute
     results = JSON.parse(response.to_str)
-end
+  end
 
-# Sat6 admin user
-$username = nil || $evm.object['username']
-
-# Get Satellite password from model else set it here
-$password = nil || $evm.object.decrypt('password')
-
-url = nil || $evm.object['sat6url']
-katello_url = nil || $evm.object['katellourl']
-$verifyssl = nil || $evm.object['verifyssl']
-activationkey = $evm.root['dialog_param_activationkey']
-hgroup_list = {}
-hgroup_list['false'] = false
-
-hgroup = get_json(url+"hostgroups")
-
-hgroup['results'].each do |hgroup|
-    hgroup_list[hgroup['name']] = hgroup['name']
-end
-
-if activationkey == "ak-Reg_To_Crash_soe_no_puppet"
+  $username       = nil || $evm.object['username']
+  $password       = nil || $evm.object.decrypt('password')
+  $verifyssl      = nil || $evm.object['verifyssl']
+  url             = nil || $evm.object['sat6url']
+  katello_url     = nil || $evm.object['katellourl']
   hgroup_list = {}
+
+  activationkey = $evm.root['dialog_param_activationkey']
   hgroup_list['false'] = false
+
+  hgroup = get_json(url+"hostgroups")
+
+  hgroup['results'].each do |hgroup|
+    hgroup_list[hgroup['name']] = hgroup['name']
+  end
+
+  if activationkey == "ak-Reg_To_Crash_soe_no_puppet"
+     hgroup_list = {}
+    hgroup_list['false'] = false
+  end
+
+  list_values = {
+    'sort_by'       => :value,
+    'required'      => false,
+    'default_value' => 'false',
+    'values'        => hgroup_list
+  }
+
+  list_values.each { |key, value| $evm.object[key] = value }
+  exit MIQ_OK
+
+rescue RestClient::Exception => err
+  $evm.log(:error, "The REST request failed with code: #{err.response.code}") unless err.response.nil?
+  $evm.log(:error, "The response body was:\n#{err.response.body.inspect}") unless err.response.nil?
+  exit MIQ_STOP
+rescue => err
+  $evm.log(:error, "[#{err}]\n#{err.backtrace.join("\n")}")
+  exit MIQ_STOP
 end
 
-list_values = {
-  'sort_by' => :value,
-  'required' => false,
-  'default_value' => 'false',
-  'values' => hgroup_list
-}
-
-list_values.each { |key, value| $evm.object[key] = value }
-$evm.log(:info, "Dialog Values: #{$evm.object['values'].inspect}")

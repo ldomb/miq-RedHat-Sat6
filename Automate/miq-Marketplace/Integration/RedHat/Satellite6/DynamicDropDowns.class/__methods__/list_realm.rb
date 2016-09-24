@@ -19,35 +19,52 @@
 require 'rest-client'
 require 'json'
 
+begin
 
-# Sat6 admin user
-$username = nil || $evm.object['username']
-
-# Get Satellite password from model else set it here
-$password = nil || $evm.object.decrypt('password')
-
-url = nil || $evm.object['sat6url']
-katello_url = nil || $evm.object['katellourl']
-
-def get_json(realms)
+  def get_json(search)
     response = RestClient::Request.new(
-        :method => :get,
-        :url => realms,
-        :user => $username,
-        :password => $password,
-        :headers => { :accept => :json,
-        :content_type => :json }
+        :method       => :get,
+        :url          => search,
+        :user         => $username,
+        :password     => $password,
+        :verify_ssl   => $verifyssl,
+        :headers      => {
+        :accept       => :json,
+        :content_type => :json
+        }
     ).execute
     results = JSON.parse(response.to_str)
-end
+  end
 
-realm = get_json(url+"realms")
-realm_list = {}
-realm['results'].each do |env|
+  $username       = nil || $evm.object['username']
+  $password       = nil || $evm.object.decrypt('password')
+  $verifyssl      = nil || $evm.object['verifyssl']
+  url             = nil || $evm.object['sat6url']
+  katello_url     = nil || $evm.object['katellourl']
+  realm_list = {}
+
+
+  realm = get_json(url+"realms")
+  realm['results'].each do |env|
     realm_list[env['id']] = env['name']
+  end
+
+  list_values = {
+    'sort_by'       => :value,
+    'required'      => false,
+    'values'        => realm_list
+  }
+
+  list_values.each { |key, value| $evm.object[key] = value }
+
+  exit MIQ_OK
+
+rescue RestClient::Exception => err
+  $evm.log(:error, "The REST request failed with code: #{err.response.code}") unless err.response.nil?
+  $evm.log(:error, "The response body was:\n#{err.response.body.inspect}") unless err.response.nil?
+  exit MIQ_STOP
+rescue => err
+  $evm.log(:error, "[#{err}]\n#{err.backtrace.join("\n")}")
+  exit MIQ_STOP
 end
 
-#realm_list[nil] = '< choose your realm >'
-$evm.object['default_value'],v = realm_list.first
-$evm.object['values'] = realm_list.to_a
-$evm.log(:info, "Dialog Values: #{$evm.object['values'].inspect}")

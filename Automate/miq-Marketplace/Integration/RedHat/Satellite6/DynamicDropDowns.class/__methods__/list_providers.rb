@@ -19,34 +19,52 @@
 require 'rest-client'
 require 'json'
 
-# Sat6 admin user
-$username = nil || $evm.object['username']
+begin
 
-# Get Satellite password from model else set it here
-$password = nil || $evm.object.decrypt('password')
-
-url = nil || $evm.object['sat6url']
-katello_url = nil || $evm.object['katellourl']
-
-def get_json(compute_resources)
+  def get_json(search)
     response = RestClient::Request.new(
-        :method => :get,
-        :url => compute_resources,
-        :user => $username,
-        :password => $password,
-        :headers => { :accept => :json,
-        :content_type => :json }
+        :method       => :get,
+        :url          => search,
+        :user         => $username,
+        :password     => $password,
+        :verify_ssl   => $verifyssl,
+        :headers      => {
+        :accept       => :json,
+        :content_type => :json
+        }
     ).execute
     results = JSON.parse(response.to_str)
-end
+  end
 
-computeresources = get_json(url+"compute_resources")
-computeresourceslist = {}
-computeresources['results'].each do |provider|
-  puts provider['name']
-  computeresourceslist[provider['id']] = provider['name']
-end
+  $username       = nil || $evm.object['username']
+  $password       = nil || $evm.object.decrypt('password')
+  $verifyssl      = nil || $evm.object['verifyssl']
+  url             = nil || $evm.object['sat6url']
+  katello_url     = nil || $evm.object['katellourl']
+  computeresourceslist = {}
 
-$evm.object['default_value'],v = computeresourceslist.first
-$evm.object['values'] = [['""','Bare Metal']] + computeresourceslist.to_a.sort
-$evm.log(:info, "Dialog Values: #{$evm.object['values'].inspect}")
+  computeresources = get_json(url+"compute_resources")
+  computeresources['results'].each do |provider|
+    puts provider['name']
+    computeresourceslist[provider['id']] = provider['name']
+  end
+
+  list_values = {
+    'sort_by'       => :value,
+    'required'      => false,
+    'default_value' => computeresourceslist.first
+    'values'        => [['""','Bare Metal']] + computeresourceslist.to_a.sort
+  }
+
+  list_values.each { |key, value| $evm.object[key] = value }
+
+  exit MIQ_OK
+
+rescue RestClient::Exception => err
+  $evm.log(:error, "The REST request failed with code: #{err.response.code}") unless err.response.nil?
+  $evm.log(:error, "The response body was:\n#{err.response.body.inspect}") unless err.response.nil?
+  exit MIQ_STOP
+rescue => err
+  $evm.log(:error, "[#{err}]\n#{err.backtrace.join("\n")}")
+  exit MIQ_STOP
+end

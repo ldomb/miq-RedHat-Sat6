@@ -19,63 +19,69 @@
 require 'rest-client'
 require 'json'
 
+begin
 
-# Sat6 admin user
-$username = nil || $evm.object['username']
-
-# Get Satellite password from model else set it here
-$password = nil || $evm.object.decrypt('password')
-
-url = nil || $evm.object['sat6url']
-katello_url = nil || $evm.object['katellourl']
-
-operatingsystem_id =  $evm.root['dialog_operatingsystem_ems_ref']
-
-def get_json(media)
+  def get_json(search)
     response = RestClient::Request.new(
-        :method => :get,
-        :url => media,
-        :user => $username,
-        :password => $password,
-        :headers => { :accept => :json,
-        :content_type => :json }
+        :method       => :get,
+        :url          => search,
+        :user         => $username,
+        :password     => $password,
+        :verify_ssl   => $verifyssl,
+        :headers      => {
+        :accept       => :json,
+        :content_type => :json
+        }
     ).execute
     results = JSON.parse(response.to_str)
-end
-
-def get_json(operatingsystems)
-    response = RestClient::Request.new(
-        :method => :get,
-        :url => operatingsystems,
-        :user => $username,
-        :password => $password,
-        :headers => { :accept => :json,
-        :content_type => :json }
-    ).execute
-    results = JSON.parse(response.to_str)
-end
-
-operatingsystems = get_json(url+"operatingsystems/#{operatingsystem_id}")
-operatingsystemslist = {}
-
-osname = operatingsystems["fullname"]
-medias = get_json(url+"media")
-#ihash(media)
-medialist = {}
-medias['results'].each do | osmedia |
-  id = osmedia['id']
-  os = get_json(url+"media/#{id}")
-  os["operatingsystems"].each do | osmedianame |
-  fullname = osmedianame["fullname"]
-  if "#{fullname}" == "#{osname}"
-  medialist[osmedia['name']] = fullname
   end
+
+  $username       = nil || $evm.object['username']
+  $password       = nil || $evm.object.decrypt('password')
+  $verifyssl      = nil || $evm.object['verifyssl']
+  url             = nil || $evm.object['sat6url']
+  katello_url     = nil || $evm.object['katellourl']
+  operatingsystemslist = {}
+  medialist = {}
+
+
+  operatingsystem_id =  $evm.root['dialog_operatingsystem_ems_ref']
+
+
+  operatingsystems = get_json(url+"operatingsystems/#{operatingsystem_id}")
+
+  osname = operatingsystems["fullname"]
+  medias = get_json(url+"media")
+  medias['results'].each do | osmedia |
+    id = osmedia['id']
+    os = get_json(url+"media/#{id}")
+    os["operatingsystems"].each do | osmedianame |
+      fullname = osmedianame["fullname"]
+      if "#{fullname}" == "#{osname}"
+        medialist[osmedia['name']] = fullname
+      end
+    end
   end
+
+
+  medialist[nil] = '< choose your media >'
+
+  list_values = {
+    'sort_by'       => :value,
+    'required'      => false,
+    'values'        => medialist
+  }
+
+  list_values.each { |key, value| $evm.object[key] = value }
+
+  exit MIQ_OK
+
+rescue RestClient::Exception => err
+  $evm.log(:error, "The REST request failed with code: #{err.response.code}") unless err.response.nil?
+  $evm.log(:error, "The response body was:\n#{err.response.body.inspect}") unless err.response.nil?
+  exit MIQ_STOP
+rescue => err
+  $evm.log(:error, "[#{err}]\n#{err.backtrace.join("\n")}")
+  exit MIQ_STOP
 end
 
-
-#$evm.object['default_value'] = medialist.first
-medialist[nil] = '< choose your media >'
-
-$evm.object['values'] = medialist.to_a
-$evm.log(:info, "Dialog Values: #{$evm.object['values'].inspect}")

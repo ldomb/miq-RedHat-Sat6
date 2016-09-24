@@ -19,37 +19,55 @@
 require 'rest-client'
 require 'json'
 
+begin
 
-# Sat6 admin user
-$username = nil || $evm.object['username']
 
-# Get Satellite password from model else set it here
-$password = nil || $evm.object.decrypt('password')
-
-url = nil || $evm.object['sat6url']
-katello_url = nil || $evm.object['katellourl']
-
-def get_json(operatingsystems)
+  def get_json(search)
     response = RestClient::Request.new(
-        :method => :get,
-        :url => operatingsystems,
-        :user => $username,
-        :password => $password,
-        :headers => { :accept => :json,
-        :content_type => :json }
+        :method       => :get,
+        :url          => search,
+        :user         => $username,
+        :password     => $password,
+        :verify_ssl   => $verifyssl,
+        :headers      => {
+        :accept       => :json,
+        :content_type => :json
+        }
     ).execute
     results = JSON.parse(response.to_str)
+  end
+
+  $username       = nil || $evm.object['username']
+  $password       = nil || $evm.object.decrypt('password')
+  $verifyssl      = nil || $evm.object['verifyssl']
+  url             = nil || $evm.object['sat6url']
+  katello_url     = nil || $evm.object['katellourl']
+  operatingsystemslist = {}
+
+
+  operatingsystems = get_json(url+"operatingsystems")
+  operatingsystems['results'].each do |operatingsystem|
+    puts operatingsystem['title']
+    operatingsystemslist[operatingsystem['id']] = operatingsystem['title']
+  end
+
+  $evm.object['default_value'],v = operatingsystemslist.first
+  list_values = {
+    'sort_by'       => :value,
+    'required'      => false,
+    'values'        => operatingsystemslist
+  }
+
+  list_values.each { |key, value| $evm.object[key] = value }
+
+  exit MIQ_OK
+
+rescue RestClient::Exception => err
+  $evm.log(:error, "The REST request failed with code: #{err.response.code}") unless err.response.nil?
+  $evm.log(:error, "The response body was:\n#{err.response.body.inspect}") unless err.response.nil?
+  exit MIQ_STOP
+rescue => err
+  $evm.log(:error, "[#{err}]\n#{err.backtrace.join("\n")}")
+  exit MIQ_STOP
 end
 
-operatingsystems = get_json(url+"operatingsystems")
-operatingsystemslist = {}
-operatingsystems['results'].each do |operatingsystem|
-  puts operatingsystem['title']
-  operatingsystemslist[operatingsystem['id']] = operatingsystem['title']
-end
-
-$evm.object['default_value'],v = operatingsystemslist.first
-#operatingsystemslist[nil] = '< choose your os >'
-
-$evm.object['values'] = operatingsystemslist.to_a
-$evm.log(:info, "Dialog Values: #{$evm.object['values'].inspect}")

@@ -19,6 +19,7 @@
 
 require 'rest-client'
 require 'json'
+
 begin
   def log(level, msg, update_message=false)
     $evm.log(level,"#{msg}")
@@ -31,35 +32,33 @@ begin
     $evm.log(:info, "")
   end
 
-# Sat6 admin user
-$username = nil || $evm.object['username']
+  def get_json(search)
+    response = RestClient::Request.new(
+        :method       => :get,
+        :url          => search,
+        :user         => $username,
+        :password     => $password,
+        :verify_ssl   => $verifyssl,
+        :headers      => {
+        :accept       => :json,
+        :content_type => :json
+        }
+    ).execute
+    results = JSON.parse(response.to_str)
+  end
 
-# Get Satellite password from model else set it here
-$password = nil || $evm.object.decrypt('password')
+  $username       = nil || $evm.object['username']
+  $password       = nil || $evm.object.decrypt('password')
+  $verifyssl      = nil || $evm.object['verifyssl']
+  url             = nil || $evm.object['sat6url']
+  katello_url     = nil || $evm.object['katellourl']
+  dialog_hash     = {}
+  cluster_hash    = {}
 
-url = nil || $evm.object['sat6url']
-katello_url = nil || $evm.object['katellourl']
-  
-  ###############
-  # Start Method
-  ###############
   log(:info, "CloudForms Automate Method Started", true)
   dump_root()
 
   compute_resource_id = $evm.root['dialog_provider_ems_ref']
-  
-
-  def get_json(compute_resources)
-    response = RestClient::Request.new(
-        :method => :get,
-        :url => compute_resources,
-        :user => $username,
-        :password => $password,
-        :headers => { :accept => :json,
-        :content_type => :json }
-    ).execute
-    results = JSON.parse(response.to_str)
-end
 
   computeresources = get_json(url+"compute_resources/#{compute_resource_id}")
 
@@ -67,17 +66,11 @@ end
   
   provider = computeresources['provider']
   
-  ## Build the templates has
-  dialog_hash = {}
-  cluster_hash = {}
-  
   if provider == "Vmware"
     networks = get_json(url+"compute_resources/#{compute_resource_id}/available_networks")
     networks["results"].each do | inner_hash |
       dialog_hash[inner_hash['id']] = inner_hash['name']
     end
-
-  
   elsif provider == "Ovirt"
     clusters = get_json(url+"compute_resources/#{compute_resource_id}/available_clusters")
     clusters["results"].each do | inner_hash |
@@ -92,8 +85,6 @@ end
   else
     log(:info, "No networks defined", true)
   end
-  
-  
 
   if dialog_hash.blank?
     log(:info, "No networks defined")
@@ -102,19 +93,22 @@ end
     $evm.object['default_value'],v = dialog_hash.first
     dialog_hash[nil] = '< choose a VM Network >'
   end
+  list_values = {
+    'sort_by'       => :value,
+    'required'      => false,
+    'values'        => dialog_hash
+  }
 
-  $evm.object["values"]     = dialog_hash
-  log(:info, "$evm.object['values']: #{$evm.object['values'].inspect}")
+  list_values.each { |key, value| $evm.object[key] = value }
 
-  ###############
-  # Exit Method
-  ###############
-  log(:info, "CloudForms Automate Method Ended", true)
   exit MIQ_OK
 
-  # Set Ruby rescue behavior
+rescue RestClient::Exception => err
+  $evm.log(:error, "The REST request failed with code: #{err.response.code}") unless err.response.nil?
+  $evm.log(:error, "The response body was:\n#{err.response.body.inspect}") unless err.response.nil?
+  exit MIQ_STOP
 rescue => err
-  log(:error, "#{err.class} #{err}")
-  log(:error, "#{err.backtrace.join("\n")}")
-  exit MIQ_ABORT
+  $evm.log(:error, "[#{err}]\n#{err.backtrace.join("\n")}")
+  exit MIQ_STOP
 end
+                                             

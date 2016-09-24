@@ -31,36 +31,34 @@ begin
     $evm.log(:info, "")
   end
 
-# Sat6 admin user
-$username = nil || $evm.object['username']
 
-# Get Satellite password from model else set it here
-$password = nil || $evm.object.decrypt('password')
+  def get_json(search)
+    response = RestClient::Request.new(
+        :method       => :get,
+        :url          => search,
+        :user         => $username,
+        :password     => $password,
+        :verify_ssl   => $verifyssl,
+        :headers      => {
+        :accept       => :json,
+        :content_type => :json
+        }
+    ).execute
+    results = JSON.parse(response.to_str)
+  end
 
-url = nil || $evm.object['sat6url']
-katello_url = nil || $evm.object['katellourl']
-  
-  ###############
-  # Start Method
-  ###############
+  $username       = nil || $evm.object['username']
+  $password       = nil || $evm.object.decrypt('password')
+  $verifyssl      = nil || $evm.object['verifyssl']
+  url             = nil || $evm.object['sat6url']
+  katello_url     = nil || $evm.object['katellourl']
+  dialog_hash = {}
+ 
   log(:info, "CloudForms Automate Method Started", true)
   dump_root()
 
   compute_resource_id = $evm.root['dialog_provider_ems_ref']
   
-
-  def get_json(compute_resources)
-    response = RestClient::Request.new(
-        :method => :get,
-        :url => compute_resources,
-        :user => $username,
-        :password => $password,
-        :headers => { :accept => :json,
-        :content_type => :json }
-    ).execute
-    results = JSON.parse(response.to_str)
-  end
-
   computeresources = get_json(url+"compute_resources/#{compute_resource_id}")
 
   log(:info, "COMPUTE: #{computeresources}", true)
@@ -68,7 +66,6 @@ katello_url = nil || $evm.object['katellourl']
   provider = computeresources['provider']
   
   ## Build the templates has
-  dialog_hash = {}
   
   if provider == "Vmware"
     
@@ -76,13 +73,11 @@ katello_url = nil || $evm.object['katellourl']
     template = inner_hash["name"]
     dialog_hash["#{template}"] = "#{template}"
   end
-
-  
-elsif provider == "Ovirt"
-  images = get_json(url+"compute_resources/#{compute_resource_id}/available_images")
-  images.each do |images|
-  dialog_hash[images['uuid']] = images['name']
-  end
+  elsif provider == "Ovirt"
+    images = get_json(url+"compute_resources/#{compute_resource_id}/available_images")
+    images.each do |images|
+      dialog_hash[images['uuid']] = images['name']
+    end
   else
   log(:info, "No templates defined", true)
   end
@@ -96,17 +91,22 @@ elsif provider == "Ovirt"
   end
 
   $evm.object["values"]     = dialog_hash
-  log(:info, "$evm.object['values']: #{$evm.object['values'].inspect}")
+  list_values = {
+    'sort_by'       => :value,
+    'required'      => false,
+    'values'        => dialog_hash
+  }
 
-  ###############
-  # Exit Method
-  ###############
-  log(:info, "CloudForms Automate Method Ended", true)
+  list_values.each { |key, value| $evm.object[key] = value }
+
   exit MIQ_OK
 
-  # Set Ruby rescue behavior
+rescue RestClient::Exception => err
+  $evm.log(:error, "The REST request failed with code: #{err.response.code}") unless err.response.nil?
+  $evm.log(:error, "The response body was:\n#{err.response.body.inspect}") unless err.response.nil?
+  exit MIQ_STOP
 rescue => err
-  log(:error, "#{err.class} #{err}")
-  log(:error, "#{err.backtrace.join("\n")}")
-  exit MIQ_ABORT
+  $evm.log(:error, "[#{err}]\n#{err.backtrace.join("\n")}")
+  exit MIQ_STOP
 end
+                         

@@ -23,25 +23,25 @@ require 'json'
 begin
 
   def get_json(search)
-      response = RestClient::Request.new(
-          :method     => :get,
-          :url        => search,
-          :user       => $username,
-          :password   => $password,
-          :verify_ssl => $verifyssl,
-          :headers      => { 
-          :accept       => :json,
-          :content_type => :json 
-          }
-      ).execute
-      results = JSON.parse(response.to_str)
+    response = RestClient::Request.new(
+        :method       => :get,
+        :url          => search,
+        :user         => $username,
+        :password     => $password,
+        :verify_ssl   => $verifyssl,
+        :headers      => { 
+        :accept       => :json,
+        :content_type => :json 
+        }
+    ).execute
+    results = JSON.parse(response.to_str)
   end
 
   $username       = nil || $evm.object['username']
   $password       = nil || $evm.object.decrypt('password')
+  $verifyssl      = nil || $evm.object['verifyssl']
   url             = nil || $evm.object['sat6url']
   katello_url     = nil || $evm.object['katellourl']
-  $verifyssl      = nil || $evm.object['verifyssl']
   organization_id = ''
   activationkeyslist = {}
  
@@ -60,10 +60,10 @@ begin
   end
 
   list_values = {
-    'sort_by' => :value,
-    'required' => false,
+    'sort_by'       => :value,
+    'required'      => false,
     'default_value' => 'false',
-    'values' => activationkeyslist
+    'values'        => activationkeyslist
   }
 
   list_values.each { |key, value| $evm.object[key] = value }

@@ -19,38 +19,54 @@
 require 'rest-client'
 require 'json'
 
+begin
 
-# Sat6 admin user
-$username = nil || $evm.object['username']
-
-# Get Satellite password from model else set it here
-$password = nil || $evm.object.decrypt('password')
-
-url = nil || $evm.object['sat6url']
-$verifyssl = nil || $evm.object['verifyssl']
-katello_url = nil || $evm.object['katellourl']
-
-def get_json(organizations)
+  def get_json(search)
     response = RestClient::Request.new(
-        :method => :get,
-        :verify_ssl => $verifyssl,
-        :url => organizations,
-        :user => $username,
-        :password => $password,
-        :headers => { :accept => :json,
-        :content_type => :json }
+        :method       => :get,
+        :url          => search,
+        :user         => $username,
+        :password     => $password,
+        :verify_ssl   => $verifyssl,
+        :headers      => {
+        :accept       => :json,
+        :content_type => :json
+        }
     ).execute
     results = JSON.parse(response.to_str)
+  end
+
+  $username       = nil || $evm.object['username']
+  $password       = nil || $evm.object.decrypt('password')
+  $verifyssl      = nil || $evm.object['verifyssl']
+  url             = nil || $evm.object['sat6url']
+  katello_url     = nil || $evm.object['katellourl']
+  organizationslist = {}
+
+
+  organizations = get_json(url+"organizations")
+  organizations['results'].each do |organization|
+    puts organization['name']
+    organizationslist[organization['name']] = organization['name']
+  end
+
+  $evm.object['default_value'],v = organizationslist.first
+  list_values = {
+    'sort_by'       => :value,
+    'required'      => false,
+    'values'        => organizationslist
+  }
+
+  list_values.each { |key, value| $evm.object[key] = value }
+
+  exit MIQ_OK
+
+rescue RestClient::Exception => err
+  $evm.log(:error, "The REST request failed with code: #{err.response.code}") unless err.response.nil?
+  $evm.log(:error, "The response body was:\n#{err.response.body.inspect}") unless err.response.nil?
+  exit MIQ_STOP
+rescue => err
+  $evm.log(:error, "[#{err}]\n#{err.backtrace.join("\n")}")
+  exit MIQ_STOP
 end
 
-organizations = get_json(url+"organizations")
-organizationslist = {}
-organizations['results'].each do |organization|
-  puts organization['name']
-  organizationslist[organization['name']] = organization['name']
-end
-
-$evm.object['default_value'],v = organizationslist.first
-#organizationslist[nil] = '< choose your org >'
-$evm.object['values'] = organizationslist.to_a
-$evm.log(:info, "Dialog Values: #{$evm.object['values'].inspect}")

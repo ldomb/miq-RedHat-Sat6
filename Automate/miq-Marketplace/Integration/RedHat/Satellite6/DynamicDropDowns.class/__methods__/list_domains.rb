@@ -19,36 +19,54 @@
 require 'rest-client'
 require 'json'
 
+begin
 
-# Sat6 admin user
-$username = nil || $evm.object['username']
-
-# Get Satellite password from model else set it here
-$password = nil || $evm.object.decrypt('password')
-
-url = nil || $evm.object['sat6url']
-katello_url = nil || $evm.object['katellourl']
-
-def get_json(domains)
+  def get_json(search)
     response = RestClient::Request.new(
-        :method => :get,
-        :url => domains,
-        :user => $username,
-        :password => $password,
-        :headers => { :accept => :json,
-        :content_type => :json }
+        :method       => :get,
+        :url          => search,
+        :user         => $username,
+        :password     => $password,
+        :verify_ssl   => $verifyssl,
+        :headers      => {
+        :accept       => :json,
+        :content_type => :json
+        }
     ).execute
     results = JSON.parse(response.to_str)
+  end
+
+  $username       = nil || $evm.object['username']
+  $password       = nil || $evm.object.decrypt('password')
+  $verifyssl      = nil || $evm.object['verifyssl']
+  url             = nil || $evm.object['sat6url']
+  katello_url     = nil || $evm.object['katellourl']
+  domainslist = {}
+
+
+  domains = get_json(url+"domains")
+  domains['results'].each do |domain|
+    puts domain['name']
+    domainslist[domain['id']] = domain['name']
+  end
+
+  $evm.object['default_value'] = domainslist.keys[1]
+  list_values = {
+    'sort_by'       => :value,
+    'required'      => false,
+    'values'        => domainslist
+  }
+
+  list_values.each { |key, value| $evm.object[key] = value }
+
+  exit MIQ_OK
+
+rescue RestClient::Exception => err
+  $evm.log(:error, "The REST request failed with code: #{err.response.code}") unless err.response.nil?
+  $evm.log(:error, "The response body was:\n#{err.response.body.inspect}") unless err.response.nil?
+  exit MIQ_STOP
+rescue => err
+  $evm.log(:error, "[#{err}]\n#{err.backtrace.join("\n")}")
+  exit MIQ_STOP
 end
 
-domains = get_json(url+"domains")
-domainslist = {}
-domains['results'].each do |domain|
-  puts domain['name']
-  domainslist[domain['id']] = domain['name']
-end
-
-$evm.object['default_value'] = domainslist.keys[1]
-#domainslist[nil] = '< choose your domain >'
-$evm.object['values'] = domainslist.to_a
-$evm.log(:info, "Dialog Values: #{$evm.object['values'].inspect}")
