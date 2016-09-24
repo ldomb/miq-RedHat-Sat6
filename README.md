@@ -10,7 +10,7 @@
 ## Author
 | Name      | E-mail |
 | --- | --- |
-| Laurent Domb | ldomb@redhat.com |
+| Laurent Domb | laurent@redhat.com |
 
 ## Packager
 | Name              | E-mail |
