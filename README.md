@@ -5,7 +5,7 @@
 | Name      | miq-RedHat-Satellite6 |
 | --- | --- | --- |
 | License   | GPL v2 (see LICENSE file) |
-| Version   | 1.1 |
+| Version   | 1.0.1 |
 
 ## Author
 | Name      | E-mail |
