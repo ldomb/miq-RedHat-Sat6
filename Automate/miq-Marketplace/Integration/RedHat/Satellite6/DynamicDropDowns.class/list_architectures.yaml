@@ -1,0 +1,18 @@
+---
+object_type: instance
+version: 1.0
+object:
+  attributes:
+    display_name: 
+    name: List_Architectures
+    inherits: 
+    description: 
+  fields:
+  - username:
+      value: admin
+  - password:
+      value: v2:{/RhboUds7SOvKui9quo8KQ==}
+  - sat6url:
+      value: https://10.9.61.68
+  - method1:
+      value: List_Architectures
